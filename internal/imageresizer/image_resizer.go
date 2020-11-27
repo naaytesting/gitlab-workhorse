@@ -290,10 +290,10 @@ func (r *Resizer) tryResizeImage(req *http.Request, f *imageFile, params *resize
 	}()
 
 	// Prevents EOF if the file is smaller than 8 bytes
-	bufferSize := int(math.Min(maxMagicLen, float64(f.contentLength)))
-	buffered := bufio.NewReaderSize(f.reader, bufferSize)
+	peekLen := int(math.Min(maxMagicLen, float64(f.contentLength)))
+	buffered := bufio.NewReader(f.reader)
 
-	headerBytes, err := buffered.Peek(bufferSize)
+	headerBytes, err := buffered.Peek(peekLen)
 	if err != nil {
 		return buffered, nil, fmt.Errorf("peek stream: %v", err)
 	}
