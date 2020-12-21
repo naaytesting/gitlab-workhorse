@@ -1,0 +1,5 @@
+---
+title: Propagate client identity to gitaly on SmartHTTP calls
+merge_request: 672
+author:
+type: other

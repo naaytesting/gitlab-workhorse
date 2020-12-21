@@ -40,16 +40,18 @@ func handleGetInfoRefs(rw http.ResponseWriter, r *http.Request, a *api.Response)
 	offers := []string{"gzip", "identity"}
 	encoding := httputil.NegotiateContentEncoding(r, offers)
 
-	if err := handleGetInfoRefsWithGitaly(r.Context(), responseWriter, a, rpc, gitProtocol, encoding); err != nil {
+	if err := handleGetInfoRefsWithGitaly(r.Context(), responseWriter, a, r, rpc, gitProtocol, encoding); err != nil {
 		helper.Fail500(responseWriter, r, fmt.Errorf("handleGetInfoRefs: %v", err))
 	}
 }
 
-func handleGetInfoRefsWithGitaly(ctx context.Context, responseWriter *HttpResponseWriter, a *api.Response, rpc, gitProtocol, encoding string) error {
+func handleGetInfoRefsWithGitaly(ctx context.Context, responseWriter *HttpResponseWriter, a *api.Response, originalClientRequest *http.Request, rpc, gitProtocol, encoding string) error {
 	ctx, smarthttp, err := gitaly.NewSmartHTTPClient(ctx, a.GitalyServer)
 	if err != nil {
 		return fmt.Errorf("GetInfoRefsHandler: %v", err)
 	}
+
+	ctx = withRequestMetadata(ctx, a, originalClientRequest)
 
 	infoRefsResponseReader, err := smarthttp.InfoRefsResponseReader(ctx, &a.Repository, rpc, gitConfigOptions(a), gitProtocol)
 	if err != nil {

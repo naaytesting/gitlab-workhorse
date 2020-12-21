@@ -5,11 +5,15 @@ In this file we handle the Git 'smart HTTP' protocol
 package git
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"path/filepath"
 	"sync"
+
+	"google.golang.org/grpc/metadata"
 
 	"gitlab.com/gitlab-org/gitlab-workhorse/internal/api"
 	"gitlab.com/gitlab-org/gitlab-workhorse/internal/log"
@@ -37,6 +41,24 @@ func gitConfigOptions(a *api.Response) []string {
 	}
 
 	return out
+}
+
+func withRequestMetadata(ctx context.Context, a *api.Response, r *http.Request) context.Context {
+	remoteIP := ""
+	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		remoteIP = ip
+	}
+
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.New(nil)
+	}
+	md.Append("user_id", a.GL_ID)
+	md.Append("username", a.GL_USERNAME)
+	md.Append("remote_ip", remoteIP)
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	return ctx
 }
 
 func postRPCHandler(a *api.API, name string, handler func(*HttpResponseWriter, *http.Request, *api.Response) error) http.Handler {

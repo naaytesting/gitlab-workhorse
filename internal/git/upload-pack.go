@@ -40,14 +40,16 @@ func handleUploadPack(w *HttpResponseWriter, r *http.Request, a *api.Response) e
 
 	gitProtocol := r.Header.Get("Git-Protocol")
 
-	return handleUploadPackWithGitaly(ctx, a, cr, cw, gitProtocol)
+	return handleUploadPackWithGitaly(ctx, a, r, cr, cw, gitProtocol)
 }
 
-func handleUploadPackWithGitaly(ctx context.Context, a *api.Response, clientRequest io.Reader, clientResponse io.Writer, gitProtocol string) error {
+func handleUploadPackWithGitaly(ctx context.Context, a *api.Response, originalClientRequest *http.Request, clientRequest io.Reader, clientResponse io.Writer, gitProtocol string) error {
 	ctx, smarthttp, err := gitaly.NewSmartHTTPClient(ctx, a.GitalyServer)
 	if err != nil {
 		return fmt.Errorf("smarthttp.UploadPack: %v", err)
 	}
+
+	ctx = withRequestMetadata(ctx, a, originalClientRequest)
 
 	if err := smarthttp.UploadPack(ctx, &a.Repository, clientRequest, clientResponse, gitConfigOptions(a), gitProtocol); err != nil {
 		return fmt.Errorf("smarthttp.UploadPack: %v", err)
