@@ -24,6 +24,7 @@ const (
 )
 
 const crcLen = 4
+const pngMagic = "\x89PNG\r\n\x1a\n"
 
 // An io.Reader adapter that skips certain PNG chunks known to cause problems.
 type skipReader struct {
@@ -111,7 +112,13 @@ func (r *skipReader) readMagic(dst []byte) (n int, err error) {
 		return
 	}
 
-	r.state = stateReadNextChunk
+	// Immediately move to done when we're not reading a PNG
+	if string(r.buffer[:]) != pngMagic {
+		log("Not a PNG - read file unchanged")
+		r.state = stateDone
+	} else {
+		r.state = stateReadNextChunk
+	}
 
 	return copy(dst, r.buffer[:]), nil
 }
