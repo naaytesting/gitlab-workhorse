@@ -34,12 +34,6 @@ type skipReader struct {
 	bytesRemaining []byte
 }
 
-// Holds the chunk type and its length in bytes
-type chunkDef struct {
-	typ string
-	len uint32
-}
-
 func main() {
 	if err := _main(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: fatal: %v\n", os.Args[0], err)
@@ -127,23 +121,23 @@ func (r *skipReader) readMagic(dst []byte) (n int, err error) {
 // to see whether we should skip it or forward it.
 func (r *skipReader) readNextChunk(dst []byte) (n int, err error) {
 	log("Read next chunk")
-	chunkDef, err := r.readChunkDef()
+	chunkLen, chunkTyp, err := r.readChunkDef()
 	if err != nil {
 		return
 	}
 
-	switch chunkDef.typ {
+	switch chunkTyp {
 	case "iCCP":
 		log("!! iCCP chunk found; skipping")
 		// Consume chunk and toss out result.
-		_, err = r.readChunk(chunkDef.len)
+		_, err = r.readChunk(chunkLen)
 		r.state = stateDone
 		return
 
 	case "PLTE", "IDAT":
 		// This means there was no iCCP chunk and we can just forward all
 		// remaining work to the underlying reader.
-		log("Encountered", chunkDef.typ, "(no iCCP chunk found)")
+		log("Encountered", chunkTyp, "(no iCCP chunk found)")
 		n := copy(dst, r.buffer[:])
 		m, err := r.underlying.Read(dst[n:])
 		r.state = stateDone
@@ -151,22 +145,22 @@ func (r *skipReader) readNextChunk(dst []byte) (n int, err error) {
 
 	default:
 		// iCCP chunk not found yet; we need to remain in this state and read more chunks.
-		log("read next chunk", chunkDef.typ)
+		log("read next chunk", chunkTyp)
 		n := copy(dst, r.buffer[:])
-		buf, err := r.readChunk(chunkDef.len)
+		buf, err := r.readChunk(chunkLen)
 		m := r.copyChunkData(dst[n:], buf)
 		return n + m, err
 	}
 }
 
 // Reads the first 8 bytes from a PNG chunk, which are
-// the chunk length (4 byte) and the chunk type (4 byte)
-func (r *skipReader) readChunkDef() (*chunkDef, error) {
+// the chunk length (4 byte) and the chunk type (4 byte).
+func (r *skipReader) readChunkDef() (uint32, string, error) {
 	log("Read chunk def")
 	// Read chunk length and type.
 	_, err := io.ReadFull(r.underlying, r.buffer[:])
 	if err != nil {
-		return nil, err
+		return 0, "", err
 	}
 
 	chunkLen := binary.BigEndian.Uint32(r.buffer[:4])
@@ -174,7 +168,7 @@ func (r *skipReader) readChunkDef() (*chunkDef, error) {
 
 	log("LEN:", chunkLen, "TYP:", chunkTyp)
 
-	return &chunkDef{chunkTyp, chunkLen}, nil
+	return chunkLen, chunkTyp, nil
 }
 
 // Reads the entire chunk, including the CRC part, which is not
