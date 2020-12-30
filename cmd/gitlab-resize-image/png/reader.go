@@ -20,10 +20,12 @@ const (
 	stateDone
 )
 
-const crcLen = 4
-const pngMagicLen = 8
-const chunkHeaderLen = 8
-const pngMagic = "\x89PNG\r\n\x1a\n"
+const (
+	crcLen         = 4
+	pngMagicLen    = 8
+	chunkHeaderLen = 8
+	pngMagic       = "\x89PNG\r\n\x1a\n"
+)
 
 // Reader is an io.Reader decorator that skips certain PNG chunks known to cause problems.
 // If the image stream is not a PNG, it will yield all bytes unchanged to the underlying
