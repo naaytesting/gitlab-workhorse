@@ -110,7 +110,7 @@ func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
 		// This means there was no iCCP chunk and we can just forward all
 		// remaining work to the underlying reader.
 		debug("Encountered", chunkTyp, "(no iCCP chunk found)")
-		n := copy(dst, r.buffer[:])
+		n = copy(dst, r.buffer[:])
 		m, err := r.underlying.Read(dst[n:])
 		r.state = stateDone
 		return n + m, err
@@ -118,10 +118,12 @@ func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
 	default:
 		// iCCP chunk not found yet; we need to remain in this state and read more chunks.
 		debug("read next chunk", chunkTyp)
-		n := copy(dst, r.buffer[:])
+		n = copy(dst, r.buffer[:])
 		buf, err := r.readChunk(chunkLen)
-		m := r.copyChunkData(dst[n:], buf)
-		return n + m, err
+		if err != nil {
+			return n, err
+		}
+		return n + r.copyChunkData(dst[n:], buf), nil
 	}
 }
 
@@ -155,17 +157,17 @@ func (r *Reader) readChunk(length uint32) ([]byte, error) {
 }
 
 func (r *Reader) copyChunkData(dst []byte, src []byte) int {
-	m := copy(dst, src)
+	n := copy(dst, src)
 	// Copy only fills the destination buffer, which might not be large enough
 	// to hold the entire chunk; in that case we need to keep reading the current
 	// chunk with the next call to Read.
-	if m < len(src) {
+	if n < len(src) {
 		r.state = stateReadCurrentChunk
-		r.bytesRemaining = src[m:]
+		r.bytesRemaining = src[n:]
 	} else {
 		r.state = stateReadNextChunk
 		r.bytesRemaining = nil
 	}
 
-	return m
+	return n
 }
