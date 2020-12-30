@@ -98,7 +98,7 @@ func (r *Reader) readMagic(dst []byte) (n int, err error) {
 // to see whether we should skip it or forward it.
 func (r *Reader) readNextChunk(dst []byte) (int, error) {
 	debug("Read next chunk")
-	chunkLen, chunkTyp, err := r.readChunkDef()
+	chunkLen, chunkTyp, err := r.readChunkLengthAndType()
 	if err != nil {
 		return 0, err
 	}
@@ -138,7 +138,7 @@ func (r *Reader) readNextChunk(dst []byte) (int, error) {
 
 // Reads the first 8 bytes from a PNG chunk, which are
 // the chunk length (4 byte) and the chunk type (4 byte).
-func (r *Reader) readChunkDef() (uint32, string, error) {
+func (r *Reader) readChunkLengthAndType() (uint32, string, error) {
 	debug("Read chunk def")
 	// Read chunk length and type.
 	_, err := io.ReadFull(r.underlying, r.buffer[:chunkHeaderLen])
