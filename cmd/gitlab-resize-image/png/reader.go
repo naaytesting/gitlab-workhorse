@@ -153,8 +153,11 @@ func (r *Reader) readChunkDef() (uint32, string, error) {
 
 func (r *Reader) copyChunkData(dst []byte, src []byte, remainingBytes int) (int, error) {
 	debug("copying chunk data")
-	// Read at most the remaining buffer length, or if it fits, the remaining number of chunk bytes.
-	lastByte := min(remainingBytes, len(src))
+	// Read at most the remaining chunk bytes
+	// OR the number of bytes we can fit into the destination buffer
+	// OR the number of bytes we can fit into the read buffer,
+	// whichever is smallest.
+	lastByte := min(min(remainingBytes, len(src)), len(dst))
 	m, err := io.ReadFull(r.underlying, src[:lastByte])
 	if err != nil {
 		return m, err
