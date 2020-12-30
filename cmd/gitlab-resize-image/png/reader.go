@@ -75,20 +75,21 @@ func debug(args ...interface{}) {
 // Consume PNG magic and proceed to reading the IHDR chunk.
 func (r *Reader) readMagic(dst []byte) (n int, err error) {
 	debug("Read magic")
-	n, err = io.ReadFull(r.underlying, r.buffer[:pngMagicLen])
+	magicBytes := r.buffer[:pngMagicLen]
+	n, err = io.ReadFull(r.underlying, magicBytes)
 	if err != nil {
 		return
 	}
 
 	// Immediately move to done when we're not reading a PNG
-	if string(r.buffer[:pngMagicLen]) != pngMagic {
+	if string(magicBytes) != pngMagic {
 		debug("Not a PNG - read file unchanged")
 		r.state = stateDone
 	} else {
 		r.state = stateReadNextChunk
 	}
 
-	return copy(dst, r.buffer[:pngMagicLen]), nil
+	return copy(dst, magicBytes), nil
 }
 
 // Starts reading a new chunk. We need to look at each chunk between IHDR and PLTE/IDAT
