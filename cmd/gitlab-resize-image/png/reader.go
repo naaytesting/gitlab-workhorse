@@ -112,7 +112,7 @@ func (r *Reader) readNextChunk(dst []byte) (int, error) {
 		r.state = stateDone
 		return 0, err
 
-	case "PLTE", "IDAT":
+	case "PLTE", "IDAT", "IEND":
 		// This means there was no iCCP chunk and we can just forward all
 		// remaining work to the underlying reader.
 		debug("Encountered", chunkTyp, "(no iCCP chunk found)")
