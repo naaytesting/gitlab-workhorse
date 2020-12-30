@@ -45,7 +45,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	switch r.state {
 	case stateDone:
 		// There is no more work to do, we let the underlying reader take over.
-		log("Done (forward read)")
+		debug("Done (forward read)")
 		return r.underlying.Read(p)
 
 	case stateReadMagic:
@@ -57,14 +57,14 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	case stateReadCurrentChunk:
 		// This means in the previous invocation, we weren't able to read
 		// the entire chunk. Keep copying chunk data.
-		log("Read remaining chunk bytes")
+		debug("Read remaining chunk bytes")
 		return r.copyChunkData(p, r.bytesRemaining), nil
 	}
 
 	return 0, fmt.Errorf("unexpected state: %d", r.state)
 }
 
-func log(args ...interface{}) {
+func debug(args ...interface{}) {
 	if os.Getenv("DEBUG") == "1" {
 		fmt.Fprintln(os.Stderr, args...)
 	}
@@ -72,7 +72,7 @@ func log(args ...interface{}) {
 
 // Consume PNG magic and proceed to reading the IHDR chunk.
 func (r *Reader) readMagic(dst []byte) (n int, err error) {
-	log("Read magic")
+	debug("Read magic")
 	n, err = io.ReadFull(r.underlying, r.buffer[:])
 	if err != nil {
 		return
@@ -80,7 +80,7 @@ func (r *Reader) readMagic(dst []byte) (n int, err error) {
 
 	// Immediately move to done when we're not reading a PNG
 	if string(r.buffer[:]) != pngMagic {
-		log("Not a PNG - read file unchanged")
+		debug("Not a PNG - read file unchanged")
 		r.state = stateDone
 	} else {
 		r.state = stateReadNextChunk
@@ -92,7 +92,7 @@ func (r *Reader) readMagic(dst []byte) (n int, err error) {
 // Starts reading a new chunk. We need to look at each chunk between IHDR and PLTE/IDAT
 // to see whether we should skip it or forward it.
 func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
-	log("Read next chunk")
+	debug("Read next chunk")
 	chunkLen, chunkTyp, err := r.readChunkDef()
 	if err != nil {
 		return
@@ -100,7 +100,7 @@ func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
 
 	switch chunkTyp {
 	case "iCCP":
-		log("!! iCCP chunk found; skipping")
+		debug("!! iCCP chunk found; skipping")
 		// Consume chunk and toss out result.
 		_, err = r.readChunk(chunkLen)
 		r.state = stateDone
@@ -109,7 +109,7 @@ func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
 	case "PLTE", "IDAT":
 		// This means there was no iCCP chunk and we can just forward all
 		// remaining work to the underlying reader.
-		log("Encountered", chunkTyp, "(no iCCP chunk found)")
+		debug("Encountered", chunkTyp, "(no iCCP chunk found)")
 		n := copy(dst, r.buffer[:])
 		m, err := r.underlying.Read(dst[n:])
 		r.state = stateDone
@@ -117,7 +117,7 @@ func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
 
 	default:
 		// iCCP chunk not found yet; we need to remain in this state and read more chunks.
-		log("read next chunk", chunkTyp)
+		debug("read next chunk", chunkTyp)
 		n := copy(dst, r.buffer[:])
 		buf, err := r.readChunk(chunkLen)
 		m := r.copyChunkData(dst[n:], buf)
@@ -128,7 +128,7 @@ func (r *Reader) readNextChunk(dst []byte) (n int, err error) {
 // Reads the first 8 bytes from a PNG chunk, which are
 // the chunk length (4 byte) and the chunk type (4 byte).
 func (r *Reader) readChunkDef() (uint32, string, error) {
-	log("Read chunk def")
+	debug("Read chunk def")
 	// Read chunk length and type.
 	_, err := io.ReadFull(r.underlying, r.buffer[:])
 	if err != nil {
@@ -138,7 +138,7 @@ func (r *Reader) readChunkDef() (uint32, string, error) {
 	chunkLen := binary.BigEndian.Uint32(r.buffer[:4])
 	chunkTyp := string(r.buffer[4:])
 
-	log("LEN:", chunkLen, "TYP:", chunkTyp)
+	debug("LEN:", chunkLen, "TYP:", chunkTyp)
 
 	return chunkLen, chunkTyp, nil
 }
