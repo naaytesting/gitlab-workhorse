@@ -22,7 +22,10 @@ const (
 const crcLen = 4
 const pngMagic = "\x89PNG\r\n\x1a\n"
 
-// An io.Reader adapter that skips certain PNG chunks known to cause problems.
+// Reader is an io.Reader decorator that skips certain PNG chunks known to cause problems.
+// If the image stream is not a PNG, it will yield all bytes unchanged to the underlying
+// reader.
+// See also https://gitlab.com/gitlab-org/gitlab/-/issues/287614
 type Reader struct {
 	underlying     io.Reader
 	state          int
