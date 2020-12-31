@@ -1,6 +1,7 @@
 package png
 
 import (
+	"bytes"
 	"hash/crc64"
 	"image"
 	"io"
@@ -9,14 +10,17 @@ import (
 	"testing"
 
 	_ "image/jpeg" // registers JPEG format for image.Decode
-	_ "image/png"  // registers PNG format for image.Decode
+	"image/png"    // registers PNG format for image.Decode
 
 	"github.com/stretchr/testify/require"
 )
 
-const goodPNG = "../../../testdata/image.png"
-const badPNG = "../../../testdata/image_bad_iccp.png"
-const jpg = "../../../testdata/image.jpg"
+const (
+	goodPNG     = "../../../testdata/image.png"
+	badPNG      = "../../../testdata/image_bad_iccp.png"
+	strippedPNG = "../../../testdata/image_stripped_iccp.png"
+	jpg         = "../../../testdata/image.jpg"
+)
 
 func TestReadImageUnchanged(t *testing.T) {
 	testCases := []struct {
@@ -44,10 +48,22 @@ func TestReadImageUnchanged(t *testing.T) {
 	}
 }
 
-func TestReadPNGWithBadICCPChunkDecodesSuccessfully(t *testing.T) {
-	_, fmt, err := image.Decode(NewReader(imageReader(t, badPNG)))
+func TestReadPNGWithBadICCPChunkDecodesAndReEncodesSuccessfully(t *testing.T) {
+	badPNGBytes, fmt, err := image.Decode(NewReader(imageReader(t, badPNG)))
 	require.NoError(t, err)
 	require.Equal(t, "png", fmt)
+
+	strippedPNGBytes, fmt, err := image.Decode(NewReader(imageReader(t, strippedPNG)))
+	require.NoError(t, err)
+	require.Equal(t, "png", fmt)
+
+	buf1 := new(bytes.Buffer)
+	buf2 := new(bytes.Buffer)
+
+	require.NoError(t, png.Encode(buf1, badPNGBytes))
+	require.NoError(t, png.Encode(buf2, strippedPNGBytes))
+
+	requireStreamUnchanged(t, buf1, buf2)
 }
 
 func imageReader(t *testing.T, path string) io.Reader {
