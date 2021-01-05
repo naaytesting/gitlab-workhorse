@@ -90,7 +90,7 @@ func (s *sendDataResponseWriter) tryInject() bool {
 			s.hijacked = true
 			helper.DisableResponseBuffering(s.rw)
 			crw := helper.NewCountingResponseWriter(s.rw)
-			injecter.Inject(crw, s.req, header)
+			injecter.Inject(crw, s.req, header, s.Header())
 			sendDataResponses.WithLabelValues(injecter.Name()).Inc()
 			sendDataResponseBytes.WithLabelValues(injecter.Name()).Add(float64(crw.Count()))
 			return true

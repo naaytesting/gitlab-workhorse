@@ -39,7 +39,7 @@ func requestScaledImage(t *testing.T, httpHeaders http.Header, params resizePara
 	responseWriter := httptest.NewRecorder()
 	paramsJSON := encodeParams(t, &params)
 
-	NewResizer(config.Config{ImageResizerConfig: cfg}).Inject(responseWriter, httpRequest, paramsJSON)
+	NewResizer(config.Config{ImageResizerConfig: cfg}).Inject(responseWriter, httpRequest, paramsJSON, httpHeaders)
 
 	return responseWriter.Result()
 }

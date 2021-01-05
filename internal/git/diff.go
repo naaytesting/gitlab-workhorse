@@ -20,7 +20,7 @@ type diffParams struct {
 
 var SendDiff = &diff{"git-diff:"}
 
-func (d *diff) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (d *diff) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	var params diffParams
 	if err := d.Unpack(&params, sendData); err != nil {
 		helper.Fail500(w, r, fmt.Errorf("SendDiff: unpack sendData: %v", err))
@@ -38,6 +38,8 @@ func (d *diff) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
 		helper.Fail500(w, r, fmt.Errorf("diff.RawDiff: %v", err))
 		return
 	}
+
+	ctx = withRequestMetadataFromResponseHeader(ctx, r, responseHeader)
 
 	if err := diffClient.SendRawDiff(ctx, w, request); err != nil {
 		log.WithRequest(r).WithError(&copyError{fmt.Errorf("diff.RawDiff: %v", err)}).Error()

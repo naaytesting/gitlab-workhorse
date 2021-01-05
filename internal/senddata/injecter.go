@@ -9,7 +9,7 @@ import (
 
 type Injecter interface {
 	Match(string) bool
-	Inject(http.ResponseWriter, *http.Request, string)
+	Inject(http.ResponseWriter, *http.Request, string, http.Header)
 	Name() string
 }
 

@@ -26,7 +26,7 @@ var (
 	SendSnapshot = &snapshot{"git-snapshot:"}
 )
 
-func (s *snapshot) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (s *snapshot) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	var params snapshotParams
 
 	if err := s.Unpack(&params, sendData); err != nil {
@@ -45,6 +45,8 @@ func (s *snapshot) Inject(w http.ResponseWriter, r *http.Request, sendData strin
 		helper.Fail500(w, r, fmt.Errorf("SendSnapshot: gitaly.NewRepositoryClient: %v", err))
 		return
 	}
+
+	ctx = withRequestMetadataFromResponseHeader(ctx, r, responseHeader)
 
 	reader, err := c.SnapshotReader(ctx, request)
 	if err != nil {

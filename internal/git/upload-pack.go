@@ -49,7 +49,7 @@ func handleUploadPackWithGitaly(ctx context.Context, a *api.Response, originalCl
 		return fmt.Errorf("smarthttp.UploadPack: %v", err)
 	}
 
-	ctx = withRequestMetadata(ctx, a, originalClientRequest)
+	ctx = withRequestMetadataFromAPIAuthorizationResponse(ctx, originalClientRequest, a)
 
 	if err := smarthttp.UploadPack(ctx, &a.Repository, clientRequest, clientResponse, gitConfigOptions(a), gitProtocol); err != nil {
 		return fmt.Errorf("smarthttp.UploadPack: %v", err)

@@ -43,7 +43,7 @@ func gitConfigOptions(a *api.Response) []string {
 	return out
 }
 
-func withRequestMetadata(ctx context.Context, a *api.Response, r *http.Request) context.Context {
+func withRequestMetadataFromAPIAuthorizationResponse(ctx context.Context, r *http.Request, a *api.Response) context.Context {
 	remoteIP := ""
 	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		remoteIP = ip
@@ -56,6 +56,22 @@ func withRequestMetadata(ctx context.Context, a *api.Response, r *http.Request) 
 
 	md.Append("user_id", a.GL_ID)
 	md.Append("username", a.GL_USERNAME)
+	md.Append("remote_ip", remoteIP)
+	return metadata.NewOutgoingContext(ctx, md)
+}
+
+func withRequestMetadataFromResponseHeader(ctx context.Context, r *http.Request, responseHeader http.Header) context.Context {
+	remoteIP := ""
+	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		remoteIP = ip
+	}
+
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.New(nil)
+	}
+
+	md.Append("username", responseHeader.Get("X-Gitlab-Meta-User"))
 	md.Append("remote_ip", remoteIP)
 	return metadata.NewOutgoingContext(ctx, md)
 }

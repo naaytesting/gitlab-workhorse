@@ -26,7 +26,7 @@ type entryParams struct{ Archive, Entry string }
 var SendEntry = &entry{"artifacts-entry:"}
 
 // Artifacts downloader doesn't support ranges when downloading a single file
-func (e *entry) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (e *entry) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	var params entryParams
 	if err := e.Unpack(&params, sendData); err != nil {
 		helper.Fail500(w, r, fmt.Errorf("SendEntry: unpack sendData: %v", err))

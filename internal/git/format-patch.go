@@ -20,7 +20,7 @@ type patchParams struct {
 
 var SendPatch = &patch{"git-format-patch:"}
 
-func (p *patch) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (p *patch) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	var params patchParams
 	if err := p.Unpack(&params, sendData); err != nil {
 		helper.Fail500(w, r, fmt.Errorf("SendPatch: unpack sendData: %v", err))
@@ -38,6 +38,8 @@ func (p *patch) Inject(w http.ResponseWriter, r *http.Request, sendData string) 
 		helper.Fail500(w, r, fmt.Errorf("diff.RawPatch: %v", err))
 		return
 	}
+
+	ctx = withRequestMetadataFromResponseHeader(ctx, r, responseHeader)
 
 	if err := diffClient.SendRawPatch(ctx, w, request); err != nil {
 		log.WithRequest(r).WithError(&copyError{fmt.Errorf("diff.RawPatch: %v", err)}).Error()

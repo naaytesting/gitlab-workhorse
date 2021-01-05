@@ -94,7 +94,7 @@ var (
 	sendURLRequestsSucceeded     = sendURLRequests.WithLabelValues("succeeded")
 )
 
-func (e *entry) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (e *entry) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	var params entryParams
 
 	sendURLOpenRequests.Inc()

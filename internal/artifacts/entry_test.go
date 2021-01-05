@@ -25,7 +25,7 @@ func testEntryServer(t *testing.T, archive string, entry string) *httptest.Respo
 		jsonParams := fmt.Sprintf(`{"Archive":"%s","Entry":"%s"}`, archive, encodedEntry)
 		data := base64.URLEncoding.EncodeToString([]byte(jsonParams))
 
-		SendEntry.Inject(w, r, data)
+		SendEntry.Inject(w, r, data, http.Header{})
 	})
 
 	httpRequest, err := http.NewRequest("GET", "/url/path", nil)

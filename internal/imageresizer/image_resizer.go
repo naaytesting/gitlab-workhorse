@@ -161,7 +161,7 @@ func NewResizer(cfg config.Config) *Resizer {
 
 // Inject forks into a dedicated scaler process to resize an image identified by path or URL
 // and streams the resized image back to the client
-func (r *Resizer) Inject(w http.ResponseWriter, req *http.Request, paramsData string) {
+func (r *Resizer) Inject(w http.ResponseWriter, req *http.Request, paramsData string, responseHeader http.Header) {
 	var outcome = resizeOutcome{status: statusUnknown, originalFileSize: 0, bytesWritten: 0}
 	start := time.Now()
 	params, err := r.unpackParameters(paramsData)

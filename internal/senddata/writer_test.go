@@ -63,7 +63,7 @@ const (
 
 type testInjecter struct{}
 
-func (ti *testInjecter) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (ti *testInjecter) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	io.WriteString(w, testInjecterData)
 }
 

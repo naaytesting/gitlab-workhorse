@@ -19,7 +19,7 @@ type blobParams struct {
 
 var SendBlob = &blob{"git-blob:"}
 
-func (b *blob) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
+func (b *blob) Inject(w http.ResponseWriter, r *http.Request, sendData string, responseHeader http.Header) {
 	var params blobParams
 	if err := b.Unpack(&params, sendData); err != nil {
 		helper.Fail500(w, r, fmt.Errorf("SendBlob: unpack sendData: %v", err))
@@ -33,6 +33,9 @@ func (b *blob) Inject(w http.ResponseWriter, r *http.Request, sendData string) {
 	}
 
 	setBlobHeaders(w)
+
+	ctx = withRequestMetadataFromResponseHeader(ctx, r, responseHeader)
+
 	if err := blobClient.SendBlob(ctx, w, &params.GetBlobRequest); err != nil {
 		helper.Fail500(w, r, fmt.Errorf("blob.GetBlob: %v", err))
 		return

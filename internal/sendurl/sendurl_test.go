@@ -35,7 +35,7 @@ func testEntryServer(t *testing.T, requestURL string, httpHeaders http.Header, a
 		w.Header().Set("Date", "Wed, 21 Oct 2015 05:28:00 GMT")
 		w.Header().Set("Pragma", "no-cache")
 
-		SendURL.Inject(w, r, data)
+		SendURL.Inject(w, r, data, http.Header{})
 	}
 	serveFile := func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "GET", r.Method)
