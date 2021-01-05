@@ -109,7 +109,6 @@ func (r *Reader) readNextChunk(dst []byte) (int, error) {
 		debug("!! iCCP chunk found; skipping")
 		// Consume chunk and toss out result.
 		_, err := io.CopyN(ioutil.Discard, r.underlying, int64(fullChunkLen))
-		r.state = stateDone
 		return 0, err
 
 	case "PLTE", "IDAT", "IEND":
