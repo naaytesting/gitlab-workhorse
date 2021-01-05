@@ -57,9 +57,7 @@ func withRequestMetadata(ctx context.Context, a *api.Response, r *http.Request) 
 	md.Append("user_id", a.GL_ID)
 	md.Append("username", a.GL_USERNAME)
 	md.Append("remote_ip", remoteIP)
-	ctx = metadata.NewOutgoingContext(ctx, md)
-
-	return ctx
+	return metadata.NewOutgoingContext(ctx, md)
 }
 
 func postRPCHandler(a *api.API, name string, handler func(*HttpResponseWriter, *http.Request, *api.Response) error) http.Handler {
