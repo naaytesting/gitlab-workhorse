@@ -53,6 +53,7 @@ func withRequestMetadata(ctx context.Context, a *api.Response, r *http.Request) 
 	if !ok {
 		md = metadata.New(nil)
 	}
+
 	md.Append("user_id", a.GL_ID)
 	md.Append("username", a.GL_USERNAME)
 	md.Append("remote_ip", remoteIP)
