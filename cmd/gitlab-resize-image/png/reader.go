@@ -26,18 +26,18 @@ type Reader struct {
 	bytesRemaining int
 }
 
-func NewReader(r io.Reader) io.Reader {
+func NewReader(r io.Reader) (io.Reader, error) {
 	magicBytes, err := readMagic(r)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if string(magicBytes) != pngMagic {
 		debug("Not a PNG - read file unchanged")
-		return io.MultiReader(bytes.NewReader(magicBytes), r)
+		return io.MultiReader(bytes.NewReader(magicBytes), r), nil
 	}
 
-	return io.MultiReader(bytes.NewReader(magicBytes), &Reader{underlying: r}, r)
+	return io.MultiReader(bytes.NewReader(magicBytes), &Reader{underlying: r}, r), nil
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {

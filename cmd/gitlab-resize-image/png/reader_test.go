@@ -42,18 +42,18 @@ func TestReadImageUnchanged(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			requireValidImage(t, NewReader(imageReader(t, tc.imagePath)), tc.imageType)
-			requireStreamUnchanged(t, NewReader(imageReader(t, tc.imagePath)), imageReader(t, tc.imagePath))
+			requireValidImage(t, pngReader(t, tc.imagePath), tc.imageType)
+			requireStreamUnchanged(t, pngReader(t, tc.imagePath), rawImageReader(t, tc.imagePath))
 		})
 	}
 }
 
 func TestReadPNGWithBadICCPChunkDecodesAndReEncodesSuccessfully(t *testing.T) {
-	badPNGBytes, fmt, err := image.Decode(NewReader(imageReader(t, badPNG)))
+	badPNGBytes, fmt, err := image.Decode(pngReader(t, badPNG))
 	require.NoError(t, err)
 	require.Equal(t, "png", fmt)
 
-	strippedPNGBytes, fmt, err := image.Decode(NewReader(imageReader(t, strippedPNG)))
+	strippedPNGBytes, fmt, err := image.Decode(pngReader(t, strippedPNG))
 	require.NoError(t, err)
 	require.Equal(t, "png", fmt)
 
@@ -66,7 +66,13 @@ func TestReadPNGWithBadICCPChunkDecodesAndReEncodesSuccessfully(t *testing.T) {
 	requireStreamUnchanged(t, buf1, buf2)
 }
 
-func imageReader(t *testing.T, path string) io.Reader {
+func pngReader(t *testing.T, path string) io.Reader {
+	r, err := NewReader(rawImageReader(t, path))
+	require.NoError(t, err)
+	return r
+}
+
+func rawImageReader(t *testing.T, path string) io.Reader {
 	f, err := os.Open(path)
 	require.NoError(t, err)
 	return f
