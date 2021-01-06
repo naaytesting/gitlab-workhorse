@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	crcLen      = 4
 	pngMagicLen = 8
 	pngMagic    = "\x89PNG\r\n\x1a\n"
 )
@@ -21,9 +20,8 @@ const (
 // See also https://gitlab.com/gitlab-org/gitlab/-/issues/287614
 type Reader struct {
 	underlying     io.Reader
-	chunkHeader    [8]byte
-	chunkBody      [4096]byte
-	bytesRemaining int
+	chunk          io.Reader
+	bytesRemaining int64
 }
 
 func NewReader(r io.Reader) (io.Reader, error) {
@@ -40,13 +38,33 @@ func NewReader(r io.Reader) (io.Reader, error) {
 	return io.MultiReader(bytes.NewReader(magicBytes), &Reader{underlying: r}, r), nil
 }
 
-func (r *Reader) Read(p []byte) (n int, err error) {
-	if r.bytesRemaining > 0 {
-		// This means in the previous invocation, we weren't able to read
-		// the entire chunk. Keep copying chunk data.
-		return r.copyChunkData(p)
+func (r *Reader) Read(p []byte) (int, error) {
+	for r.bytesRemaining == 0 {
+		const (
+			headerLen = 8
+			crcLen    = 4
+		)
+		var header [headerLen]byte
+		_, err := io.ReadFull(r.underlying, header[:])
+		if err != nil {
+			return 0, err
+		}
+
+		chunkLen := binary.BigEndian.Uint32(header[:4])
+		if chunkType := string(header[4:]); chunkType == "iCCP" {
+			if _, err := io.CopyN(ioutil.Discard, r.underlying, int64(chunkLen)+crcLen); err != nil {
+				return 0, err
+			}
+			continue
+		}
+
+		r.bytesRemaining = headerLen + int64(chunkLen) + crcLen
+		r.chunk = io.MultiReader(bytes.NewReader(header[:]), io.LimitReader(r.underlying, r.bytesRemaining-headerLen))
 	}
-	return r.readNextChunk(p)
+
+	n, err := r.chunk.Read(p)
+	r.bytesRemaining -= int64(n)
+	return n, err
 }
 
 func debug(args ...interface{}) {
@@ -65,93 +83,4 @@ func readMagic(r io.Reader) ([]byte, error) {
 	}
 
 	return magicBytes, nil
-}
-
-// Starts reading a new chunk. We need to look at each chunk between IHDR and PLTE/IDAT
-// to see whether we should skip it or forward it.
-func (r *Reader) readNextChunk(dst []byte) (int, error) {
-	debug("Read next chunk")
-	chunkLen, chunkTyp, err := r.readChunkLengthAndType()
-	if err != nil {
-		return 0, err
-	}
-	fullChunkLen := int(chunkLen + crcLen)
-
-	switch chunkTyp {
-	case "iCCP":
-		debug("!! iCCP chunk found; skipping")
-		// Consume chunk and toss out result.
-		_, err := io.CopyN(ioutil.Discard, r.underlying, int64(fullChunkLen))
-		return 0, err
-
-	case "PLTE", "IDAT", "IEND":
-		// This means there was no iCCP chunk and we can just forward all
-		// remaining work to the underlying reader.
-		debug("Encountered", chunkTyp, "(no iCCP chunk found)")
-		// EOF passes control to the next reader.
-		return copy(dst, r.chunkHeader[:]), io.EOF
-
-	default:
-		// iCCP chunk not found yet; we need to remain in this state and read more chunks.
-		debug("read next chunk", chunkTyp)
-
-		// Copy the chunk header bytes we already read.
-		n := copy(dst, r.chunkHeader[:])
-
-		// Copy the remaining bytes.
-		r.bytesRemaining = fullChunkLen
-		m, err := r.copyChunkData(dst[n:])
-		return n + m, err
-	}
-}
-
-// Reads the first 8 bytes from a PNG chunk, which are
-// the chunk length (4 byte) and the chunk type (4 byte).
-func (r *Reader) readChunkLengthAndType() (uint32, string, error) {
-	debug("Read chunk def")
-	// Read chunk length and type.
-	_, err := io.ReadFull(r.underlying, r.chunkHeader[:])
-	if err != nil {
-		return 0, "", err
-	}
-
-	chunkLen := binary.BigEndian.Uint32(r.chunkHeader[:4])
-	chunkTyp := string(r.chunkHeader[4:])
-
-	debug("LEN:", chunkLen, "TYP:", chunkTyp)
-
-	return chunkLen, chunkTyp, nil
-}
-
-func (r *Reader) copyChunkData(dst []byte) (int, error) {
-	debug("copying chunk data")
-	// Read at most the remaining chunk bytes
-	// OR the number of bytes we can fit into the destination buffer
-	// OR the number of bytes we can fit into the read buffer,
-	// whichever is smallest.
-	lastByte := min(min(r.bytesRemaining, len(r.chunkBody)), len(dst))
-	m, err := io.ReadFull(r.underlying, r.chunkBody[:lastByte])
-	if err != nil {
-		return m, err
-	}
-
-	// Transfer read buffer contents to destination buffer.
-	m = copy(dst, r.chunkBody[:m])
-
-	if m < r.bytesRemaining {
-		// We weren't able to read the full chunk. Keep trying with the next Read.
-		r.bytesRemaining -= m
-	} else {
-		// We read the full chunk so we're ready to read the next.
-		r.bytesRemaining = 0
-	}
-	debug("bytes remaining:", r.bytesRemaining)
-	return m, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
