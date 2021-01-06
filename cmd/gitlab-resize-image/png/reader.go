@@ -88,12 +88,8 @@ func (r *Reader) readNextChunk(dst []byte) (int, error) {
 		// This means there was no iCCP chunk and we can just forward all
 		// remaining work to the underlying reader.
 		debug("Encountered", chunkTyp, "(no iCCP chunk found)")
-		n := copy(dst, r.chunkHeader[:])
-		m, err := r.underlying.Read(dst[n:])
-		if err != nil {
-			return n + m, err
-		}
-		return n + m, io.EOF // EOF passes control to the next reader
+		// EOF passes control to the next reader.
+		return copy(dst, r.chunkHeader[:]), io.EOF 
 
 	default:
 		// iCCP chunk not found yet; we need to remain in this state and read more chunks.
