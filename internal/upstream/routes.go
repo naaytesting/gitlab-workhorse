@@ -199,6 +199,7 @@ func configureRoutes(u *upstream) {
 	static := &staticpages.Static{DocumentRoot: u.DocumentRoot, Exclude: staticExclude}
 	proxy := buildProxy(u.Backend, u.Version, u.RoundTripper, u.Config)
 	cableProxy := proxypkg.NewProxy(u.CableBackend, u.Version, u.CableRoundTripper)
+	geoPrimaryProxy := proxypkg.NewProxy(u.GeoBackend, u.Version, u.GeoRoundTripper)
 
 	assetsNotFoundHandler := NotFoundUnless(u.DevelopmentMode, proxy)
 	if u.AltDocumentRoot != "" {
@@ -229,6 +230,64 @@ func configureRoutes(u *upstream) {
 	healthUpstream := static.ErrorPagesUnless(u.DevelopmentMode, staticpages.ErrorFormatText, proxy)
 
 	u.Routes = []routeEntry{
+		// In this POC, this version of workhorse will only be used on the Geo
+		// secondary. And we assume the primary internal URL is http://gdk.test:3000.
+		//
+		// TODO: Make an internal API request to ask for proxy to primary URL if applicable
+		//
+		// For example: GET /api/v4/geo/secondary_proxy
+		//
+		// If the response is: { proxyToPrimary: "https://primary-gitlab.example.com" }
+		// Then: Make workhorse proxy everything to the Geo primary, except an allowlist.
+		//
+		// If the response is: {}
+		// Then: This is a Geo primary, or a non-Geo deployment.
+
+		// Serve Git and LFS requests from this Geo secondary
+		// Note that Geo already redirects pushes, with special terminal output.
+		// Note that excessive secondary lag can cause unexpected behavior since
+		// pulls are performed against a different source of truth. Ideally, we'd
+		// proxy/redirect pulls as well, when the secondary is not up-to-date.
+		u.route("GET", gitProjectPattern+`info/refs\z`, git.GetInfoRefsHandler(api)),
+		u.route("POST", gitProjectPattern+`git-upload-pack\z`, contentEncodingHandler(git.UploadPack(api)), withMatcher(isContentType("application/x-git-upload-pack-request"))),
+		u.route("POST", gitProjectPattern+`git-receive-pack\z`, contentEncodingHandler(git.ReceivePack(api)), withMatcher(isContentType("application/x-git-receive-pack-request"))),
+		u.route("PUT", gitProjectPattern+`gitlab-lfs/objects/([0-9a-f]{64})/([0-9]+)\z`, lfs.PutStore(api, signingProxy, preparers.lfs), withMatcher(isContentType("application/octet-stream"))),
+
+		// Serve assets from this Geo secondary
+		u.route(
+			"", `^/assets/`,
+			static.ServeExisting(
+				u.URLPrefix,
+				staticpages.CacheExpireMax,
+				assetsNotFoundHandler,
+			),
+			withoutTracing(), // Tracing on assets is very noisy
+		),
+
+		// Serve health checks from this Geo secondary
+		// health checks don't intercept errors and go straight to rails
+		// TODO: We should probably not return a HTML deploy page?
+		//       https://gitlab.com/gitlab-org/gitlab-workhorse/issues/230
+		u.route("", "^/-/(readiness|liveness)$", static.DeployPage(probeUpstream)),
+		u.route("", "^/-/health$", static.DeployPage(healthUpstream)),
+
+		u.route("", "^/users/(sign_in|sign_out)$", defaultUpstream),
+		u.route("", "^/oauth/geo/(auth|callback|logout)$", defaultUpstream),
+		u.route("", "^/admin/geo$", defaultUpstream),
+		u.route("", "^/admin/geo/", defaultUpstream),
+		u.route("", "^/api/v4/geo_nodes", defaultUpstream),
+		u.route("", "^/api/v4/geo_replication", defaultUpstream),
+		u.route("", "^/-/metrics$", defaultUpstream),
+
+		// Proxy everything else to Geo primary
+		u.route("", "", geoPrimaryProxy),
+
+
+
+		// All routes below this line are dead code in this POC
+
+
+
 		// Git Clone
 		u.route("GET", gitProjectPattern+`info/refs\z`, git.GetInfoRefsHandler(api)),
 		u.route("POST", gitProjectPattern+`git-upload-pack\z`, contentEncodingHandler(git.UploadPack(api)), withMatcher(isContentType("application/x-git-upload-pack-request"))),

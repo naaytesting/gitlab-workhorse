@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -36,6 +37,8 @@ type upstream struct {
 	Routes            []routeEntry
 	RoundTripper      http.RoundTripper
 	CableRoundTripper http.RoundTripper
+	GeoBackend        *url.URL
+	GeoRoundTripper   http.RoundTripper
 	accessLogger      *logrus.Logger
 }
 
@@ -57,8 +60,12 @@ func newUpstream(cfg config.Config, accessLogger *logrus.Logger, routesCallback 
 	if up.CableSocket == "" {
 		up.CableSocket = up.Socket
 	}
+	if up.GeoBackend == nil {
+		up.GeoBackend = helper.URLMustParse("http://gdk.test:3000") // Geo primary internal URL
+	}
 	up.RoundTripper = roundtripper.NewBackendRoundTripper(up.Backend, up.Socket, up.ProxyHeadersTimeout, cfg.DevelopmentMode)
 	up.CableRoundTripper = roundtripper.NewBackendRoundTripper(up.CableBackend, up.CableSocket, up.ProxyHeadersTimeout, cfg.DevelopmentMode)
+	up.GeoRoundTripper = roundtripper.NewBackendRoundTripper(up.GeoBackend, up.Socket, up.ProxyHeadersTimeout, cfg.DevelopmentMode)
 	up.configureURLPrefix()
 	routesCallback(&up)
 
